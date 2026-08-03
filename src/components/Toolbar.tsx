@@ -31,7 +31,9 @@ export function Toolbar() {
     }
   };
 
-  const enterMode = (target: 'view' | 'wall-draw' | 'floor-draw') => {
+  const enterMode = (
+    target: 'view' | 'wall-draw' | 'floor-draw' | 'note-place'
+  ) => {
     setSelected(null);
     setMode(mode === target ? 'view' : target);
   };
@@ -61,6 +63,14 @@ export function Toolbar() {
       >
         <span className="tool-icon">🟫</span>
         Boden
+      </button>
+      <button
+        className={`tool-btn ${mode === 'note-place' ? 'active' : ''}`}
+        onClick={() => enterMode('note-place')}
+        title="Kommentar platzieren: Klick auf Boden. Handle unter dem Text skaliert, Entf löscht."
+      >
+        <span className="tool-icon">💬</span>
+        Text
       </button>
 
       <div className="toolbar-divider" />

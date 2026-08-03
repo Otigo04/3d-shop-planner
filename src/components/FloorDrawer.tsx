@@ -3,6 +3,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { useShopStore } from '../store/shopStore';
 import { snapToGrid, snapToRoomEdges } from '../lib/wallMath';
+import { formatLength } from '../lib/units';
 import type { Vector2 } from '../types';
 
 const DEFAULT_COLOR = '#cbb79a';
@@ -10,6 +11,7 @@ const MIN_SIZE = 0.2;
 
 export function FloorDrawer() {
   const mode = useShopStore((s) => s.mode);
+  const unit = useShopStore((s) => s.unit);
 
   const [start, setStartState] = useState<Vector2 | null>(null);
   const [cursor, setCursor] = useState<Vector2 | null>(null);
@@ -146,7 +148,7 @@ export function FloorDrawer() {
             style={{ pointerEvents: 'none' }}
           >
             <div className="wall-length-label">
-              {w.toFixed(2)} × {d.toFixed(2)}m
+              {formatLength(w, unit)} × {formatLength(d, unit)}
             </div>
           </Html>
         </>

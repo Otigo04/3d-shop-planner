@@ -3,13 +3,13 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { useShopStore } from '../store/shopStore';
 import {
-  formatMeters,
   snapToEndpoints,
   snapToGrid,
   snapToRoomEdges,
   wallLength,
   wallTransform,
 } from '../lib/wallMath';
+import { formatLength } from '../lib/units';
 import type { Vector2 } from '../types';
 
 const WALL_HEIGHT = 2.5;
@@ -19,6 +19,7 @@ const MIN_LENGTH = 0.1;
 export function WallDrawer() {
   const mode = useShopStore((s) => s.mode);
   const walls = useShopStore((s) => s.walls);
+  const unit = useShopStore((s) => s.unit);
 
   const [start, setStartState] = useState<Vector2 | null>(null);
   const [cursor, setCursor] = useState<Vector2 | null>(null);
@@ -189,7 +190,7 @@ export function WallDrawer() {
             center
             style={{ pointerEvents: 'none' }}
           >
-            <div className="wall-length-label">{formatMeters(previewLength)}</div>
+            <div className="wall-length-label">{formatLength(previewLength, unit)}</div>
           </Html>
         </>
       )}

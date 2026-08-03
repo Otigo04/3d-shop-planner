@@ -87,6 +87,23 @@ export function CameraRig() {
         redo();
         return;
       }
+      // Kopieren/Einfügen der Auswahl (Möbel, Wände, Böden, Notizen)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        const s = useShopStore.getState();
+        if (s.selection.length > 0) {
+          e.preventDefault();
+          s.copySelection();
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        const s = useShopStore.getState();
+        if (s.clipboard) {
+          e.preventDefault();
+          s.pasteClipboard();
+        }
+        return;
+      }
       if (e.ctrlKey || e.metaKey) return;
 
       // Ausgewählte Objekte löschen (auch Mehrfachauswahl, ein Undo-Schritt)

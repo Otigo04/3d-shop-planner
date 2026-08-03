@@ -1,21 +1,28 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useShopStore } from '../store/shopStore';
+import {
+  metalTexture,
+  noiseTexture,
+  pegboardAlphaTexture,
+  woodTexture,
+} from '../lib/textures';
 import type { Furniture as FurnitureItem, FurnitureMaterial } from '../types';
 
 const ACCENT = '#06b6d4';
 
+// Textur liefert Struktur, Möbel-Farbe den Ton (multiplikativ)
 export function materialProps(material: FurnitureMaterial) {
   switch (material) {
     case 'metal':
-      return { roughness: 0.35, metalness: 0.7 };
+      return { roughness: 0.32, metalness: 0.72, map: metalTexture() };
     case 'glass':
-      return { roughness: 0.1, metalness: 0, transparent: true, opacity: 0.4 };
+      return { roughness: 0.08, metalness: 0, transparent: true, opacity: 0.4 };
     case 'wood':
-      return { roughness: 0.7, metalness: 0 };
+      return { roughness: 0.62, metalness: 0, map: woodTexture() };
     default:
-      return { roughness: 0.5, metalness: 0 };
+      return { roughness: 0.5, metalness: 0.04, map: noiseTexture() };
   }
 }
 
@@ -32,6 +39,10 @@ function rayToFloor(ray: THREE.Ray): { x: number; z: number } | null {
 
 const snap = (v: number) => Math.round(v / 0.1) * 0.1;
 
+// Eine Einheits-Box für ALLE Möbelteile: die Teile werden nur skaliert.
+// Spart pro Möbel ~7 eigene Geometrien (Upload + Speicher + State-Wechsel).
+const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
+
 // Minimalistisch-realistische Geometrien: erkennbar, nicht hyperdetailliert.
 // Alle Maße relativ zu scale (x=Länge, y=Höhe, z=Tiefe), Ursprung am Boden.
 export function FurnitureModel({
@@ -46,15 +57,54 @@ export function FurnitureModel({
   opacity?: number;
 }) {
   const { x: L, y: H, z: D } = f.scale;
-  const mat = {
-    color: f.color,
-    emissive,
-    emissiveIntensity,
-    ...materialProps(f.material),
-    ...(opacity < 1
-      ? { transparent: true, opacity, depthWrite: false }
-      : {}),
-  };
+  const transparent = opacity < 1;
+
+  // Ein Material für alle Korpus-Teile eines Möbels statt eins pro Teil.
+  // Farbe/Material bestimmen die Instanz; Hover-Emissive wird nur mutiert,
+  // damit Überfahren kein neues Material erzeugt.
+  const mat = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({
+      color: f.color,
+      ...materialProps(f.material),
+    });
+    return m;
+  }, [f.color, f.material]);
+
+  useEffect(() => () => mat.dispose(), [mat]);
+
+  mat.emissive.set(emissive);
+  mat.emissiveIntensity = emissiveIntensity;
+  if (transparent) {
+    mat.transparent = true;
+    mat.opacity = opacity;
+    mat.depthWrite = false;
+  }
+
+  // Lochwand: Löcher via Alphamap, Wiederholung an die Plattengröße
+  // gekoppelt (gleich große Lochwände teilen sich Textur UND Material)
+  const pegMat = useMemo(() => {
+    if (f.type !== 'pegboard') return null;
+    const m = new THREE.MeshStandardMaterial({
+      color: f.color,
+      ...materialProps(f.material),
+      alphaMap: pegboardAlphaTexture(
+        Math.max(1, Math.round(L * 2)),
+        Math.max(1, Math.round(H * 2))
+      ),
+      transparent: true,
+      alphaTest: 0.4,
+      side: THREE.DoubleSide,
+    });
+    return m;
+  }, [f.type, f.color, f.material, L, H]);
+
+  useEffect(() => () => pegMat?.dispose(), [pegMat]);
+
+  if (pegMat) {
+    pegMat.emissive.set(emissive);
+    pegMat.emissiveIntensity = emissiveIntensity;
+    if (transparent) pegMat.opacity = opacity;
+  }
 
   const box = (
     w: number,
@@ -65,10 +115,15 @@ export function FurnitureModel({
     pz: number,
     key: string | number
   ) => (
-    <mesh key={key} position={[px, py, pz]} castShadow receiveShadow>
-      <boxGeometry args={[w, h, d]} />
-      <meshStandardMaterial {...mat} />
-    </mesh>
+    <mesh
+      key={key}
+      position={[px, py, pz]}
+      scale={[w, h, d]}
+      geometry={UNIT_BOX}
+      material={mat}
+      castShadow
+      receiveShadow
+    />
   );
 
   switch (f.type) {
@@ -87,8 +142,21 @@ export function FurnitureModel({
         </group>
       );
     }
-    case 'pegboard':
-      return <group>{box(L, H, D, 0, H / 2, 0, 0)}</group>;
+    case 'pegboard': {
+      // Rahmen + perforierte Platte: Löcher sind echt durchsichtig (Alphamap)
+      const t = 0.05;
+      return (
+        <group>
+          {box(L, t, D, 0, t / 2, 0, 'bot')}
+          {box(L, t, D, 0, H - t / 2, 0, 'top')}
+          {box(t, H - 2 * t, D, -L / 2 + t / 2, H / 2, 0, 'l')}
+          {box(t, H - 2 * t, D, L / 2 - t / 2, H / 2, 0, 'r')}
+          <mesh position={[0, H / 2, 0]} material={pegMat!}>
+            <planeGeometry args={[L, H]} />
+          </mesh>
+        </group>
+      );
+    }
     case 'counter':
       // Korpus + überstehende Deckplatte
       return (
@@ -109,21 +177,19 @@ export function FurnitureModel({
       const r = 0.02;
       return (
         <group>
-          <mesh position={[-L / 2 + r, H / 2, 0]} castShadow>
+          <mesh position={[-L / 2 + r, H / 2, 0]} material={mat} castShadow>
             <cylinderGeometry args={[r, r, H, 10]} />
-            <meshStandardMaterial {...mat} />
           </mesh>
-          <mesh position={[L / 2 - r, H / 2, 0]} castShadow>
+          <mesh position={[L / 2 - r, H / 2, 0]} material={mat} castShadow>
             <cylinderGeometry args={[r, r, H, 10]} />
-            <meshStandardMaterial {...mat} />
           </mesh>
           <mesh
             position={[0, H - r, 0]}
             rotation={[0, 0, Math.PI / 2]}
+            material={mat}
             castShadow
           >
             <cylinderGeometry args={[r, r, L - 4 * r, 10]} />
-            <meshStandardMaterial {...mat} />
           </mesh>
           {box(0.3, 0.02, D, -L / 2 + r, 0.01, 0, 'footl')}
           {box(0.3, 0.02, D, L / 2 - r, 0.01, 0, 'footr')}
@@ -228,9 +294,8 @@ export function FurnitureModel({
       };
       return (
         <group>
-          <mesh position={[0, potH / 2, 0]} castShadow>
+          <mesh position={[0, potH / 2, 0]} material={mat} castShadow>
             <cylinderGeometry args={[L * 0.32, L * 0.24, potH, 12]} />
-            <meshStandardMaterial {...mat} />
           </mesh>
           <mesh position={[0, potH + (H - potH) * 0.35, 0]} castShadow>
             <sphereGeometry args={[L * 0.42, 10, 8]} />

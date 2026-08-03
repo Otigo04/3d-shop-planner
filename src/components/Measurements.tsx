@@ -1,6 +1,7 @@
 import { Html } from '@react-three/drei';
 import { useShopStore } from '../store/shopStore';
-import { formatMeters, openingSpans, wallLength } from '../lib/wallMath';
+import { openingSpans, wallLength } from '../lib/wallMath';
+import { formatLength } from '../lib/units';
 import type { Wall } from '../types';
 
 // Wand in Teilstücke zerlegen: Rest | Öffnung | Rest | Öffnung | Rest ...
@@ -20,6 +21,7 @@ function wallParts(wall: Wall, length: number) {
 }
 
 function WallMeasurements({ wall }: { wall: Wall }) {
+  const unit = useShopStore((s) => s.unit);
   const length = wallLength(wall.start, wall.end);
   if (length < 0.01) return null;
   const dirX = (wall.end.x - wall.start.x) / length;
@@ -41,7 +43,7 @@ function WallMeasurements({ wall }: { wall: Wall }) {
         center
         style={{ pointerEvents: 'none' }}
       >
-        <div className="dim-label">{formatMeters(length)}</div>
+        <div className="dim-label">{formatLength(length, unit)}</div>
       </Html>
 
       {/* Teilstücke: Rest links · Tür · Rest rechts usw. */}
@@ -55,7 +57,7 @@ function WallMeasurements({ wall }: { wall: Wall }) {
           >
             <div className={`dim-label ${p.opening ? 'opening' : 'part'}`}>
               {p.label ? `${p.label} ` : ''}
-              {formatMeters(p.to - p.from)}
+              {formatLength(p.to - p.from, unit)}
             </div>
           </Html>
         ))}
@@ -67,6 +69,7 @@ export function Measurements() {
   const show = useShopStore((s) => s.showMeasurements);
   const walls = useShopStore((s) => s.walls);
   const dims = useShopStore((s) => s.floorDimensions);
+  const unit = useShopStore((s) => s.unit);
 
   if (!show) return null;
 
@@ -82,14 +85,14 @@ export function Measurements() {
         center
         style={{ pointerEvents: 'none' }}
       >
-        <div className="dim-label room">↔ {formatMeters(dims.width)}</div>
+        <div className="dim-label room">↔ {formatLength(dims.width, unit)}</div>
       </Html>
       <Html
         position={[dims.width / 2 + 0.7, 0.05, 0]}
         center
         style={{ pointerEvents: 'none' }}
       >
-        <div className="dim-label room">↕ {formatMeters(dims.depth)}</div>
+        <div className="dim-label room">↕ {formatLength(dims.depth, unit)}</div>
       </Html>
     </group>
   );

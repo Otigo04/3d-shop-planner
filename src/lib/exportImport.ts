@@ -1,5 +1,5 @@
 import { useShopStore } from '../store/shopStore';
-import type { FloorZone, Furniture, Wall } from '../types';
+import type { FloorZone, Furniture, TextNote, Wall } from '../types';
 
 export interface PlanFile {
   app: 'shop-planner';
@@ -10,6 +10,7 @@ export interface PlanFile {
   walls: Wall[];
   floors: FloorZone[];
   furniture: Furniture[];
+  notes: TextNote[];
 }
 
 const stamp = () => {
@@ -41,6 +42,7 @@ export function exportPlanJSON() {
     walls: s.walls,
     floors: s.floors,
     furniture: s.furniture,
+    notes: s.notes,
   };
   download(
     new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' }),
@@ -72,6 +74,7 @@ export function parsePlan(text: string): PlanFile {
     walls: Array.isArray(raw.walls) ? raw.walls : [],
     floors: Array.isArray(raw.floors) ? raw.floors : [],
     furniture: Array.isArray(raw.furniture) ? raw.furniture : [],
+    notes: Array.isArray(raw.notes) ? raw.notes : [],
   };
 }
 
@@ -84,6 +87,7 @@ export function importPlanFromFile(file: File): Promise<void> {
       walls: plan.walls,
       floors: plan.floors,
       furniture: plan.furniture,
+      notes: plan.notes,
     });
   });
 }

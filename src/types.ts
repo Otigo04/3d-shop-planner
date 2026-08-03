@@ -82,13 +82,26 @@ export interface FloorZone {
   color: string;
 }
 
+// Frei platzierbarer Kommentar im Raum (Billboard-Text).
+// fontSize in Metern — per Handle beliebig groß/klein ziehbar.
+export interface TextNote {
+  id: string;
+  text: string;
+  position: Vector3; // y = Schwebehöhe über Boden
+  fontSize: number;
+  color: string;
+}
+
+export type LengthUnit = 'mm' | 'cm' | 'm';
+
 export type EditorMode =
   | 'view'
   | 'wall-draw'
   | 'floor-draw'
   | 'furniture-place'
+  | 'note-place'
   | 'edit';
 
-export type SelectableType = 'wall' | 'furniture' | 'floor';
+export type SelectableType = 'wall' | 'furniture' | 'floor' | 'note';
 
 export type CameraView = 'top' | 'front' | 'side' | 'reset' | 'fit';

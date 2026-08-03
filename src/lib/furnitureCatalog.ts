@@ -10,14 +10,16 @@ export interface CatalogItem {
   material: FurnitureMaterial;
 }
 
-// Maße aus dem Master-Prompt (Phase 3)
+// Maße aus dem Master-Prompt (Phase 3).
+// Jeder Typ hat seine eigene, unverwechselbare Default-Farbe —
+// abgestimmte Palette (warme Hölzer, kühle Metalle, neutrale Flächen).
 export const FURNITURE_CATALOG: CatalogItem[] = [
   {
     type: 'shelf',
     label: 'Regal',
     icon: '🗄️',
     size: { x: 2, y: 1.8, z: 0.4 },
-    color: '#4a5568',
+    color: '#3f4a5a', // Anthrazit-Blau
     material: 'metal',
   },
   {
@@ -25,7 +27,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Lochwand',
     icon: '🧩',
     size: { x: 1, y: 2, z: 0.05 },
-    color: '#f4f4f5',
+    color: '#ece5d8', // Birke hell
     material: 'wood',
   },
   {
@@ -33,7 +35,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Kasse',
     icon: '💳',
     size: { x: 1.5, y: 1.1, z: 0.6 },
-    color: '#6b4a2f',
+    color: '#7a4a28', // Nussbaum dunkel
     material: 'wood',
   },
   {
@@ -41,7 +43,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Theke',
     icon: '🍽️',
     size: { x: 2, y: 0.9, z: 0.8 },
-    color: '#fafafa',
+    color: '#f3efe7', // Warmweiß
     material: 'plastic',
   },
   {
@@ -49,7 +51,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Stange',
     icon: '🧥',
     size: { x: 1.5, y: 2, z: 0.5 },
-    color: '#a1a1aa',
+    color: '#b9bec7', // Silber
     material: 'metal',
   },
   {
@@ -57,7 +59,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Tisch',
     icon: '🛋️',
     size: { x: 1.2, y: 0.75, z: 0.7 },
-    color: '#c8a476',
+    color: '#c99e63', // Eiche
     material: 'wood',
   },
   {
@@ -65,7 +67,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Karton',
     icon: '📦',
     size: { x: 0.4, y: 0.35, z: 0.4 },
-    color: '#bd9268',
+    color: '#c9a678', // Wellpappe hell
     material: 'wood',
   },
   {
@@ -73,7 +75,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Kartons',
     icon: '🗃️',
     size: { x: 0.5, y: 0.85, z: 0.5 },
-    color: '#bd9268',
+    color: '#b28d5c', // Wellpappe dunkler
     material: 'wood',
   },
   {
@@ -81,7 +83,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Palette',
     icon: '🪵',
     size: { x: 1.2, y: 0.15, z: 0.8 },
-    color: '#a8825a',
+    color: '#a07a48', // Fichte roh
     material: 'wood',
   },
   {
@@ -89,7 +91,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Sitzbank',
     icon: '🪑',
     size: { x: 1.2, y: 0.45, z: 0.4 },
-    color: '#8b6f47',
+    color: '#8a6a42', // Teak
     material: 'wood',
   },
   {
@@ -97,7 +99,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Pflanze',
     icon: '🪴',
     size: { x: 0.4, y: 1.2, z: 0.4 },
-    color: '#8a5a44',
+    color: '#b56a4c', // Terrakotta
     material: 'plastic',
   },
   {
@@ -105,7 +107,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Spiegel',
     icon: '🪞',
     size: { x: 0.6, y: 1.8, z: 0.06 },
-    color: '#9aa0a6',
+    color: '#8e97a3', // Alu-Rahmen
     material: 'metal',
   },
   {
@@ -113,7 +115,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Kühlregal',
     icon: '🧊',
     size: { x: 1.2, y: 1.9, z: 0.7 },
-    color: '#e8eaed',
+    color: '#dde6ec', // Kühlgeräte-Weiß
     material: 'metal',
   },
   {
@@ -121,7 +123,7 @@ export const FURNITURE_CATALOG: CatalogItem[] = [
     label: 'Umkleide',
     icon: '👗',
     size: { x: 1.2, y: 2.1, z: 1.2 },
-    color: '#d8d4ce',
+    color: '#cbc0ae', // Leinen
     material: 'wood',
   },
 ];

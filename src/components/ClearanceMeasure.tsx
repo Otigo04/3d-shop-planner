@@ -1,7 +1,7 @@
 import { Html, Line } from '@react-three/drei';
 import { useShopStore } from '../store/shopStore';
 import { computeClearances } from '../lib/clearance';
-import { formatMeters } from '../lib/wallMath';
+import { formatLength } from '../lib/units';
 
 // Abstands-Linien vom ausgewählten Möbel zu Wänden / anderen Möbeln /
 // Raumkanten — zum Ausmessen von Gängen und Fluren.
@@ -14,6 +14,7 @@ export function ClearanceMeasure() {
   const walls = useShopStore((s) => s.walls);
   const furniture = useShopStore((s) => s.furniture);
   const dims = useShopStore((s) => s.floorDimensions);
+  const unit = useShopStore((s) => s.unit);
 
   if (!f) return null;
 
@@ -43,7 +44,7 @@ export function ClearanceMeasure() {
             center
             style={{ pointerEvents: 'none' }}
           >
-            <div className="dim-label clearance">{formatMeters(c.dist)}</div>
+            <div className="dim-label clearance">{formatLength(c.dist, unit)}</div>
           </Html>
         </group>
       ))}

@@ -1,7 +1,16 @@
 import { useShopStore } from '../store/shopStore';
-import { formatMeters, wallLength } from '../lib/wallMath';
-import type { Door, FloorZone, Furniture, Wall, WindowOpening } from '../types';
+import { wallLength } from '../lib/wallMath';
+import { formatLength, fromUnit, roundUnit, toUnit } from '../lib/units';
+import type {
+  Door,
+  FloorZone,
+  Furniture,
+  TextNote,
+  Wall,
+  WindowOpening,
+} from '../types';
 
+// Längenfeld: Wert intern immer Meter, Anzeige/Eingabe in gewählter Einheit
 function NumberField({
   label,
   value,
@@ -17,21 +26,69 @@ function NumberField({
   step?: number;
   onCommit: (v: number) => void;
 }) {
+  const unit = useShopStore((s) => s.unit);
   return (
     <label className="prop-field">
       <span>{label}</span>
-      <input
-        type="number"
-        value={Number(value.toFixed(2))}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(e) => {
-          const v = parseFloat(e.target.value);
-          if (Number.isFinite(v) && v >= min && (max === undefined || v <= max))
-            onCommit(v);
-        }}
-      />
+      <span className="prop-input-unit">
+        <input
+          type="number"
+          value={roundUnit(toUnit(value, unit), unit)}
+          min={roundUnit(toUnit(min, unit), unit)}
+          max={max !== undefined ? roundUnit(toUnit(max, unit), unit) : undefined}
+          step={toUnit(step, unit)}
+          onChange={(e) => {
+            const v = fromUnit(parseFloat(e.target.value), unit);
+            if (Number.isFinite(v) && v >= min && (max === undefined || v <= max))
+              onCommit(v);
+          }}
+        />
+        <span className="unit-suffix">{unit}</span>
+      </span>
+    </label>
+  );
+}
+
+// Einheitsloses Zahlenfeld (z.B. Rotation in Grad)
+function PlainNumberField({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  suffix,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  suffix?: string;
+  onCommit: (v: number) => void;
+}) {
+  return (
+    <label className="prop-field">
+      <span>{label}</span>
+      <span className="prop-input-unit">
+        <input
+          type="number"
+          value={Number(value.toFixed(1))}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(e) => {
+            const v = parseFloat(e.target.value);
+            if (
+              Number.isFinite(v) &&
+              (min === undefined || v >= min) &&
+              (max === undefined || v <= max)
+            )
+              onCommit(v);
+          }}
+        />
+        {suffix && <span className="unit-suffix">{suffix}</span>}
+      </span>
     </label>
   );
 }
@@ -65,6 +122,7 @@ function SliderField({
 function WallPanel({ wall }: { wall: Wall }) {
   const updateWall = useShopStore((s) => s.updateWall);
   const deleteWall = useShopStore((s) => s.deleteWall);
+  const unit = useShopStore((s) => s.unit);
   const length = wallLength(wall.start, wall.end);
   const k = (field: string) => `wall:${wall.id}:${field}`;
 
@@ -147,12 +205,12 @@ function WallPanel({ wall }: { wall: Wall }) {
     <aside className="prop-panel">
       <h2>Wand</h2>
       <p className="prop-meta">
-        {formatMeters(length)} · Höhe {formatMeters(wall.height)}
+        {formatLength(length, unit)} · Höhe {formatLength(wall.height, unit)}
       </p>
 
-      <NumberField label="Länge (m)" value={length} onCommit={setLength} />
+      <NumberField label="Länge" value={length} onCommit={setLength} />
       <NumberField
-        label="Höhe (m)"
+        label="Höhe"
         value={wall.height}
         min={0.3}
         onCommit={(height) =>
@@ -179,7 +237,7 @@ function WallPanel({ wall }: { wall: Wall }) {
         }
       />
       <NumberField
-        label="Dicke (m)"
+        label="Dicke"
         value={wall.thickness}
         min={0.05}
         step={0.05}
@@ -220,8 +278,8 @@ function WallPanel({ wall }: { wall: Wall }) {
             </button>
           </div>
           <p className="opening-meta">
-            {dw.toFixed(2)} × {Math.min(d.height, wall.height).toFixed(2)}m ·
-            links {left.toFixed(2)}m · rechts {right.toFixed(2)}m
+            {formatLength(dw, unit)} × {formatLength(Math.min(d.height, wall.height), unit)} ·
+            links {formatLength(left, unit)} · rechts {formatLength(right, unit)}
           </p>
           <SliderField
             label="Position"
@@ -288,8 +346,8 @@ function WallPanel({ wall }: { wall: Wall }) {
             </button>
           </div>
           <p className="opening-meta">
-            {ww.toFixed(2)} × {w.height.toFixed(2)}m ·
-            links {wLeft.toFixed(2)}m · rechts {wRight.toFixed(2)}m
+            {formatLength(ww, unit)} × {formatLength(w.height, unit)} ·
+            links {formatLength(wLeft, unit)} · rechts {formatLength(wRight, unit)}
           </p>
           <SliderField
             label="Position"
@@ -340,6 +398,7 @@ function WallPanel({ wall }: { wall: Wall }) {
 function FurniturePanel({ f }: { f: Furniture }) {
   const updateFurniture = useShopStore((s) => s.updateFurniture);
   const deleteFurniture = useShopStore((s) => s.deleteFurniture);
+  const unit = useShopStore((s) => s.unit);
   const k = (field: string) => `furn:${f.id}:${field}`;
   const deg = ((f.rotation * 180) / Math.PI) % 360;
 
@@ -347,12 +406,12 @@ function FurniturePanel({ f }: { f: Furniture }) {
     <aside className="prop-panel">
       <h2>{f.customLabel ?? 'Möbel'}</h2>
       <p className="prop-meta">
-        {f.type} · {f.scale.x.toFixed(1)} × {f.scale.z.toFixed(1)} ×{' '}
-        {f.scale.y.toFixed(1)}m
+        {f.type} · {formatLength(f.scale.x, unit)} ×{' '}
+        {formatLength(f.scale.z, unit)} × {formatLength(f.scale.y, unit)}
       </p>
 
       <NumberField
-        label="X (m)"
+        label="X"
         value={f.position.x}
         min={-1000}
         onCommit={(x) =>
@@ -360,39 +419,40 @@ function FurniturePanel({ f }: { f: Furniture }) {
         }
       />
       <NumberField
-        label="Z (m)"
+        label="Z"
         value={f.position.z}
         min={-1000}
         onCommit={(z) =>
           updateFurniture(f.id, { position: { ...f.position, z } }, k('z'))
         }
       />
-      <NumberField
-        label="Rotation (°)"
+      <PlainNumberField
+        label="Rotation"
         value={deg < 0 ? deg + 360 : deg}
         min={-360}
         max={360}
         step={15}
+        suffix="°"
         onCommit={(d) =>
           updateFurniture(f.id, { rotation: (d * Math.PI) / 180 }, k('rot'))
         }
       />
       <NumberField
-        label="Länge (m)"
+        label="Länge"
         value={f.scale.x}
         onCommit={(x) =>
           updateFurniture(f.id, { scale: { ...f.scale, x } }, k('sx'))
         }
       />
       <NumberField
-        label="Höhe (m)"
+        label="Höhe"
         value={f.scale.y}
         onCommit={(y) =>
           updateFurniture(f.id, { scale: { ...f.scale, y } }, k('sy'))
         }
       />
       <NumberField
-        label="Tiefe (m)"
+        label="Tiefe"
         value={f.scale.z}
         onCommit={(z) =>
           updateFurniture(f.id, { scale: { ...f.scale, z } }, k('sz'))
@@ -432,11 +492,86 @@ function FurniturePanel({ f }: { f: Furniture }) {
   );
 }
 
+/* ---------- Kommentar ---------- */
+
+function NotePanel({ note }: { note: TextNote }) {
+  const updateNote = useShopStore((s) => s.updateNote);
+  const deleteNote = useShopStore((s) => s.deleteNote);
+  const k = (field: string) => `note:${note.id}:${field}`;
+
+  return (
+    <aside className="prop-panel">
+      <h2>Kommentar</h2>
+      <p className="prop-meta">Handle unter dem Text zieht die Größe</p>
+
+      <label className="prop-field prop-field-block">
+        <span>Text</span>
+        <textarea
+          className="prop-textarea"
+          value={note.text}
+          rows={3}
+          onChange={(e) =>
+            updateNote(note.id, { text: e.target.value }, k('text'))
+          }
+        />
+      </label>
+      <NumberField
+        label="Größe"
+        value={note.fontSize}
+        min={0.08}
+        max={5}
+        step={0.05}
+        onCommit={(fontSize) => updateNote(note.id, { fontSize }, k('size'))}
+      />
+      <NumberField
+        label="Höhe"
+        value={note.position.y}
+        min={0}
+        max={10}
+        onCommit={(y) =>
+          updateNote(note.id, { position: { ...note.position, y } }, k('y'))
+        }
+      />
+      <NumberField
+        label="X"
+        value={note.position.x}
+        min={-1000}
+        onCommit={(x) =>
+          updateNote(note.id, { position: { ...note.position, x } }, k('x'))
+        }
+      />
+      <NumberField
+        label="Z"
+        value={note.position.z}
+        min={-1000}
+        onCommit={(z) =>
+          updateNote(note.id, { position: { ...note.position, z } }, k('z'))
+        }
+      />
+      <label className="prop-field">
+        <span>Farbe</span>
+        <input
+          type="color"
+          value={note.color}
+          onChange={(e) =>
+            updateNote(note.id, { color: e.target.value }, k('color'))
+          }
+        />
+      </label>
+
+      <button className="danger-btn" onClick={() => deleteNote(note.id)}>
+        Kommentar löschen (Entf)
+      </button>
+    </aside>
+  );
+}
+
 /* ---------- Bodenfläche ---------- */
 
 function FloorPanel({ zone }: { zone: FloorZone }) {
   const updateFloor = useShopStore((s) => s.updateFloor);
   const deleteFloor = useShopStore((s) => s.deleteFloor);
+  const unit = useShopStore((s) => s.unit);
   const k = (field: string) => `floor:${zone.id}:${field}`;
 
   const w = zone.end.x - zone.start.x;
@@ -446,11 +581,11 @@ function FloorPanel({ zone }: { zone: FloorZone }) {
     <aside className="prop-panel">
       <h2>Bodenfläche</h2>
       <p className="prop-meta">
-        {w.toFixed(2)} × {d.toFixed(2)}m
+        {formatLength(w, unit)} × {formatLength(d, unit)}
       </p>
 
       <NumberField
-        label="Breite (m)"
+        label="Breite"
         value={w}
         min={0.2}
         onCommit={(nw) =>
@@ -458,7 +593,7 @@ function FloorPanel({ zone }: { zone: FloorZone }) {
         }
       />
       <NumberField
-        label="Tiefe (m)"
+        label="Tiefe"
         value={d}
         min={0.2}
         onCommit={(nd) =>
@@ -466,7 +601,7 @@ function FloorPanel({ zone }: { zone: FloorZone }) {
         }
       />
       <NumberField
-        label="X (m)"
+        label="X"
         value={zone.start.x}
         min={-1000}
         onCommit={(x) =>
@@ -478,7 +613,7 @@ function FloorPanel({ zone }: { zone: FloorZone }) {
         }
       />
       <NumberField
-        label="Z (m)"
+        label="Z"
         value={zone.start.z}
         min={-1000}
         onCommit={(z) =>
@@ -513,6 +648,9 @@ function MultiPanel() {
   const selection = useShopStore((s) => s.selection);
   const setColorForSelection = useShopStore((s) => s.setColorForSelection);
   const deleteSelection = useShopStore((s) => s.deleteSelection);
+  const copySelection = useShopStore((s) => s.copySelection);
+  const pasteClipboard = useShopStore((s) => s.pasteClipboard);
+  const hasClipboard = useShopStore((s) => s.clipboard !== null);
   const setSelected = useShopStore((s) => s.setSelected);
 
   const counts = selection.reduce(
@@ -520,12 +658,13 @@ function MultiPanel() {
       acc[x.type] += 1;
       return acc;
     },
-    { wall: 0, furniture: 0, floor: 0 } as Record<string, number>
+    { wall: 0, furniture: 0, floor: 0, note: 0 } as Record<string, number>
   );
   const parts = [
     counts.wall > 0 ? `${counts.wall} Wand/Wände` : null,
     counts.furniture > 0 ? `${counts.furniture} Möbel` : null,
     counts.floor > 0 ? `${counts.floor} Boden/Böden` : null,
+    counts.note > 0 ? `${counts.note} Kommentar(e)` : null,
   ].filter(Boolean);
 
   return (
@@ -542,6 +681,18 @@ function MultiPanel() {
         />
       </label>
 
+      <button className="add-btn" onClick={copySelection}>
+        Kopieren (Strg+C)
+      </button>
+      <button
+        className="add-btn"
+        style={{ marginTop: 8 }}
+        disabled={!hasClipboard}
+        onClick={pasteClipboard}
+      >
+        Einfügen (Strg+V)
+      </button>
+
       <button className="danger-btn" onClick={deleteSelection}>
         Alle löschen (Entf)
       </button>
@@ -557,6 +708,7 @@ function MultiPanel() {
 function ShopPanel() {
   const name = useShopStore((s) => s.name);
   const dims = useShopStore((s) => s.floorDimensions);
+  const unit = useShopStore((s) => s.unit);
   const setName = useShopStore((s) => s.setName);
   const setFloorDimensions = useShopStore((s) => s.setFloorDimensions);
 
@@ -564,7 +716,7 @@ function ShopPanel() {
     <aside className="prop-panel">
       <h2>Shop</h2>
       <p className="prop-meta">
-        Boden {dims.width.toFixed(1)} × {dims.depth.toFixed(1)}m
+        Boden {formatLength(dims.width, unit)} × {formatLength(dims.depth, unit)}
       </p>
       <label className="prop-field">
         <span>Name</span>
@@ -576,7 +728,7 @@ function ShopPanel() {
         />
       </label>
       <NumberField
-        label="Breite (m)"
+        label="Breite"
         value={dims.width}
         min={1}
         max={100}
@@ -586,7 +738,7 @@ function ShopPanel() {
         }
       />
       <NumberField
-        label="Tiefe (m)"
+        label="Tiefe"
         value={dims.depth}
         min={1}
         max={100}
@@ -618,12 +770,18 @@ export function PropertyPanel() {
       ? s.floors.find((f) => f.id === s.selectedId)
       : undefined
   );
+  const note = useShopStore((s) =>
+    s.selectedType === 'note'
+      ? s.notes.find((n) => n.id === s.selectedId)
+      : undefined
+  );
 
   if (selectionCount > 1) return <MultiPanel />;
   if (selectedType === 'wall' && wall) return <WallPanel wall={wall} />;
   if (selectedType === 'furniture' && furniture)
     return <FurniturePanel f={furniture} />;
   if (selectedType === 'floor' && floor) return <FloorPanel zone={floor} />;
+  if (selectedType === 'note' && note) return <NotePanel note={note} />;
   if (mode === 'view') return <ShopPanel />;
   return null;
 }

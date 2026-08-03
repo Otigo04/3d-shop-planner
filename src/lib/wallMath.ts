@@ -77,10 +77,6 @@ export function snapToEndpoints(
     : { point: p, snapped: false };
 }
 
-export function formatMeters(len: number): string {
-  return `${len.toFixed(2)}m`;
-}
-
 // Kanten-Snap an den Raum-Grenzen (Boden-Rechteck um den Ursprung)
 export function snapToRoomEdges(
   p: Vector2,

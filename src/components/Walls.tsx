@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useShopStore } from '../store/shopStore';
 import { wallTransform } from '../lib/wallMath';
+import { noiseTexture } from '../lib/textures';
 import type { Wall } from '../types';
 
 const ACCENT = '#06b6d4';
@@ -126,7 +127,8 @@ function WallMesh({ wall }: { wall: Wall }) {
           <boxGeometry args={[seg.to - seg.from, seg.y1 - seg.y0, wall.thickness]} />
           <meshStandardMaterial
             color={wall.color}
-            roughness={0.9}
+            roughness={0.85}
+            map={noiseTexture()}
             emissive={emissive}
             emissiveIntensity={emissiveIntensity}
           />

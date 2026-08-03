@@ -6,7 +6,9 @@ import type {
   FloorZone,
   Furniture,
   FurnitureType,
+  LengthUnit,
   SelectableType,
+  TextNote,
   Wall,
 } from '../types';
 
@@ -17,6 +19,15 @@ interface Snapshot {
   walls: Wall[];
   floors: FloorZone[];
   furniture: Furniture[];
+  notes: TextNote[];
+}
+
+// Zwischenablage für Strg+C/V — Objekte als tiefe Kopien
+interface Clipboard {
+  walls: Wall[];
+  floors: FloorZone[];
+  furniture: Furniture[];
+  notes: TextNote[];
 }
 
 export interface ShopState extends Snapshot {
@@ -34,7 +45,9 @@ export interface ShopState extends Snapshot {
   orthographic: boolean;
   darkMode: boolean;
   showMeasurements: boolean;
+  unit: LengthUnit;
   placingType: FurnitureType | null;
+  clipboard: Clipboard | null;
   // Kamera-Kommando: Komponente konsumiert es, nonce erzwingt Re-Trigger
   viewRequest: { view: CameraView; nonce: number } | null;
   // Merge-Schlüssel der letzten Mutation: gleiche aufeinanderfolgende
@@ -75,6 +88,16 @@ export interface ShopState extends Snapshot {
     mergeKey?: string
   ) => void;
   deleteFurniture: (id: string) => void;
+  addNote: (note: TextNote) => void;
+  updateNote: (
+    id: string,
+    updates: Partial<TextNote>,
+    mergeKey?: string
+  ) => void;
+  deleteNote: (id: string) => void;
+  copySelection: () => void;
+  pasteClipboard: () => void;
+  setUnit: (unit: LengthUnit) => void;
   setMode: (mode: EditorMode) => void;
   startPlacing: (type: FurnitureType) => void;
   stopPlacing: () => void;
@@ -100,6 +123,7 @@ const takeSnapshot = (s: Snapshot): Snapshot => ({
   walls: structuredClone(s.walls),
   floors: structuredClone(s.floors),
   furniture: structuredClone(s.furniture),
+  notes: structuredClone(s.notes),
 });
 
 const initialSnapshot: Snapshot = {
@@ -108,6 +132,7 @@ const initialSnapshot: Snapshot = {
   walls: [],
   floors: [],
   furniture: [],
+  notes: [],
 };
 
 // Nach einer Mutation: Redo-Tail kappen, Snapshot anhängen.
@@ -161,7 +186,9 @@ export const useShopStore = create<ShopState>()(
       orthographic: false,
       darkMode: false,
       showMeasurements: false,
+      unit: 'cm',
       placingType: null,
+      clipboard: null,
       viewRequest: null,
       lastMutation: null,
 
@@ -252,6 +279,116 @@ export const useShopStore = create<ShopState>()(
           ...clearIfSelected(s, id),
         })),
 
+      addNote: (note) =>
+        set((s) => pushHistory(s, { notes: [...s.notes, note] })),
+
+      updateNote: (id, updates, mergeKey) =>
+        set((s) =>
+          pushHistory(
+            s,
+            {
+              notes: s.notes.map((n) =>
+                n.id === id ? { ...n, ...updates } : n
+              ),
+            },
+            mergeKey
+          )
+        ),
+
+      deleteNote: (id) =>
+        set((s) => ({
+          ...pushHistory(s, { notes: s.notes.filter((n) => n.id !== id) }),
+          ...clearIfSelected(s, id),
+        })),
+
+      copySelection: () =>
+        set((s) => {
+          if (s.selection.length === 0) return s;
+          const ids = new Set(s.selection.map((x) => x.id));
+          const clipboard: Clipboard = {
+            walls: structuredClone(s.walls.filter((w) => ids.has(w.id))),
+            floors: structuredClone(s.floors.filter((f) => ids.has(f.id))),
+            furniture: structuredClone(
+              s.furniture.filter((f) => ids.has(f.id))
+            ),
+            notes: structuredClone(s.notes.filter((n) => ids.has(n.id))),
+          };
+          return { clipboard };
+        }),
+
+      // Einfügen mit 0,5m-Versatz, frische IDs, alles EIN Undo-Schritt.
+      // Eingefügte Objekte werden zur neuen Auswahl (direkt verschiebbar).
+      pasteClipboard: () =>
+        set((s) => {
+          const c = s.clipboard;
+          if (!c) return s;
+          const OFF = 0.5;
+          const mv = (p: { x: number; z: number }) => ({
+            ...p,
+            x: p.x + OFF,
+            z: p.z + OFF,
+          });
+
+          const walls = c.walls.map((w) => {
+            const id = crypto.randomUUID();
+            return {
+              ...structuredClone(w),
+              id,
+              start: mv(w.start),
+              end: mv(w.end),
+              doors: w.doors.map((d) => ({
+                ...d,
+                id: crypto.randomUUID(),
+                wallId: id,
+              })),
+              windows: w.windows.map((win) => ({
+                ...win,
+                id: crypto.randomUUID(),
+                wallId: id,
+              })),
+            };
+          });
+          const floors = c.floors.map((f) => ({
+            ...structuredClone(f),
+            id: crypto.randomUUID(),
+            start: mv(f.start),
+            end: mv(f.end),
+          }));
+          const furniture = c.furniture.map((f) => ({
+            ...structuredClone(f),
+            id: crypto.randomUUID(),
+            position: { ...f.position, x: f.position.x + OFF, z: f.position.z + OFF },
+          }));
+          const notes = c.notes.map((n) => ({
+            ...structuredClone(n),
+            id: crypto.randomUUID(),
+            position: { ...n.position, x: n.position.x + OFF, z: n.position.z + OFF },
+          }));
+
+          const selection = [
+            ...walls.map((w) => ({ id: w.id, type: 'wall' as const })),
+            ...floors.map((f) => ({ id: f.id, type: 'floor' as const })),
+            ...furniture.map((f) => ({ id: f.id, type: 'furniture' as const })),
+            ...notes.map((n) => ({ id: n.id, type: 'note' as const })),
+          ];
+          if (selection.length === 0) return s;
+          const last = selection[selection.length - 1];
+
+          return {
+            ...pushHistory(s, {
+              walls: [...s.walls, ...walls],
+              floors: [...s.floors, ...floors],
+              furniture: [...s.furniture, ...furniture],
+              notes: [...s.notes, ...notes],
+            }),
+            selection,
+            selectedId: last.id,
+            selectedType: last.type,
+          };
+        }),
+
+      setUnit: (unit) => set({ unit }),
+
       setMode: (mode) =>
         set((s) => ({
           mode,
@@ -299,6 +436,7 @@ export const useShopStore = create<ShopState>()(
               walls: s.walls.filter((w) => !ids.has(w.id)),
               floors: s.floors.filter((f) => !ids.has(f.id)),
               furniture: s.furniture.filter((f) => !ids.has(f.id)),
+              notes: s.notes.filter((n) => !ids.has(n.id)),
             }),
             selection: [],
             selectedId: null,
@@ -341,6 +479,18 @@ export const useShopStore = create<ShopState>()(
                     }
                   : f
               ),
+              notes: s.notes.map((n) =>
+                ids.has(n.id)
+                  ? {
+                      ...n,
+                      position: {
+                        ...n.position,
+                        x: n.position.x + dx,
+                        z: n.position.z + dz,
+                      },
+                    }
+                  : n
+              ),
             },
             mergeKey
           );
@@ -357,6 +507,9 @@ export const useShopStore = create<ShopState>()(
               floors: s.floors.map((f) => (ids.has(f.id) ? { ...f, color } : f)),
               furniture: s.furniture.map((f) =>
                 ids.has(f.id) ? { ...f, color } : f
+              ),
+              notes: s.notes.map((n) =>
+                ids.has(n.id) ? { ...n, color } : n
               ),
             },
             'multi:color'
@@ -440,15 +593,19 @@ export const useShopStore = create<ShopState>()(
         walls: s.walls,
         floors: s.floors,
         furniture: s.furniture,
+        notes: s.notes,
         cameraState: s.cameraState,
         darkMode: s.darkMode,
         showMeasurements: s.showMeasurements,
+        unit: s.unit,
       }),
       onRehydrateStorage: () => (state) => {
         // History frisch aufsetzen — gespeicherter Stand = Ausgangspunkt.
         // floors kann in alten Speicherständen fehlen.
         if (state) {
           state.floors ??= [];
+          state.notes ??= [];
+          state.unit ??= 'cm';
           state.history = [takeSnapshot(state)];
           state.historyIndex = 0;
           state.lastMutation = null;

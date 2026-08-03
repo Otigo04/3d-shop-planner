@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useShopStore } from '../store/shopStore';
+import type { LengthUnit } from '../types';
 
 const MODE_LABELS: Record<string, string> = {
   view: 'Ansicht',
   'wall-draw': 'Wand zeichnen',
   'floor-draw': 'Boden zeichnen',
   'furniture-place': 'Möbel platzieren',
+  'note-place': 'Kommentar platzieren',
   edit: 'Bearbeiten',
 };
 
@@ -17,6 +19,7 @@ const SHORTCUTS: Array<[string, string]> = [
   ['R', 'Reset / Drehen'],
   ['P', 'Ortho/Persp'],
   ['Strg+Z', 'Undo'],
+  ['Strg+C/V', 'Kopieren'],
   ['Strg+Klick', 'Mehrfach'],
   ['←↑↓→', 'Bewegen'],
 ];
@@ -27,7 +30,9 @@ export function Hud() {
   const orthographic = useShopStore((s) => s.orthographic);
   const darkMode = useShopStore((s) => s.darkMode);
   const showMeasurements = useShopStore((s) => s.showMeasurements);
+  const unit = useShopStore((s) => s.unit);
   const setName = useShopStore((s) => s.setName);
+  const setUnit = useShopStore((s) => s.setUnit);
   const toggleDarkMode = useShopStore((s) => s.toggleDarkMode);
   const toggleMeasurements = useShopStore((s) => s.toggleMeasurements);
 
@@ -72,10 +77,20 @@ export function Hud() {
           {' · '}
           {orthographic ? 'Ortho' : 'Perspektive'}
         </span>
+        <select
+          className="hud-unit-select"
+          value={unit}
+          onChange={(e) => setUnit(e.target.value as LengthUnit)}
+          title="Maßeinheit für Eingaben & Anzeigen"
+        >
+          <option value="mm">mm</option>
+          <option value="cm">cm</option>
+          <option value="m">m</option>
+        </select>
         <button
           className={`hud-icon-btn ${showMeasurements ? 'active' : ''}`}
           onClick={toggleMeasurements}
-          title="Meteranzeigen ein/aus"
+          title="Maßanzeigen ein/aus"
         >
           📏
         </button>

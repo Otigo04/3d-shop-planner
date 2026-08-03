@@ -22,6 +22,9 @@ const SHORTCUTS: Array<[string, string]> = [
   ['Strg+C/V', 'Kopieren'],
   ['Strg+Klick', 'Mehrfach'],
   ['←↑↓→', 'Bewegen'],
+  ['2-Finger', 'Verschieben'],
+  ['Pinch', 'Zoom'],
+  ['⌥+Ziehen', 'Drehen'],
 ];
 
 export function Hud() {

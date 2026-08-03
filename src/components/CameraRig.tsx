@@ -53,7 +53,9 @@ export function CameraRig() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const tweenRef = useRef<Tween | null>(null);
   const shiftDown = useRef(false);
+  const altDown = useRef(false);
   const camera = useThree((s) => s.camera);
+  const gl = useThree((s) => s.gl);
   // Aktuelle Kamera für Keyboard-Handler (Effect hat leere Deps)
   const cameraRef = useRef(camera);
   cameraRef.current = camera;
@@ -70,6 +72,7 @@ export function CameraRig() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') shiftDown.current = true;
+      if (e.key === 'Alt') altDown.current = true;
 
       // Nicht in Input-Feldern reagieren
       const tag = (e.target as HTMLElement)?.tagName;
@@ -187,6 +190,7 @@ export function CameraRig() {
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') shiftDown.current = false;
+      if (e.key === 'Alt') altDown.current = false;
     };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
@@ -195,6 +199,73 @@ export function CameraRig() {
       window.removeEventListener('keyup', onKeyUp);
     };
   }, []);
+
+  // Mac-Trackpad: Zwei-Finger-Scroll = Pan, Pinch (ctrl) / Cmd+Scroll = Zoom.
+  // OrbitControls eigenes Wheel-Zoom ist deaktiviert (enableZoom={false}),
+  // damit Wheel-Events nicht doppelt verarbeitet werden.
+  useEffect(() => {
+    const el = gl.domElement;
+
+    const panBy = (deltaX: number, deltaY: number) => {
+      const controls = controlsRef.current;
+      if (!controls) return;
+      const cam = cameraRef.current;
+      const panLeft = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 0);
+      const panUp = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 1);
+      let distX: number;
+      let distY: number;
+      if ((cam as THREE.PerspectiveCamera).isPerspectiveCamera) {
+        const persp = cam as THREE.PerspectiveCamera;
+        let targetDistance = cam.position.distanceTo(controls.target);
+        targetDistance *= Math.tan(((persp.fov / 2) * Math.PI) / 180);
+        distX = (2 * deltaX * targetDistance) / el.clientHeight;
+        distY = (2 * deltaY * targetDistance) / el.clientHeight;
+      } else {
+        const ortho = cam as THREE.OrthographicCamera;
+        distX =
+          (deltaX * (ortho.right - ortho.left)) / ortho.zoom / el.clientWidth;
+        distY =
+          (deltaY * (ortho.top - ortho.bottom)) / ortho.zoom / el.clientHeight;
+      }
+      const pan = new THREE.Vector3();
+      pan.addScaledVector(panLeft, distX);
+      pan.addScaledVector(panUp, -distY);
+      cam.position.add(pan);
+      controls.target.add(pan);
+      controls.update();
+    };
+
+    const zoomBy = (deltaY: number) => {
+      const controls = controlsRef.current;
+      if (!controls) return;
+      const cam = cameraRef.current;
+      // deltaY < 0 (Pinch-in / Scroll hoch) = heranzoomen
+      const scale = Math.pow(0.95, -deltaY * 0.05);
+      if ((cam as THREE.PerspectiveCamera).isPerspectiveCamera) {
+        const offset = cam.position.clone().sub(controls.target);
+        const len = THREE.MathUtils.clamp(offset.length() * scale, 1, 80);
+        offset.setLength(len);
+        cam.position.copy(controls.target).add(offset);
+      } else {
+        const ortho = cam as THREE.OrthographicCamera;
+        ortho.zoom = THREE.MathUtils.clamp(ortho.zoom / scale, 8, 400);
+        ortho.updateProjectionMatrix();
+      }
+      controls.update();
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (!controlsRef.current) return;
+      e.preventDefault();
+      // Mac-Pinch feuert Wheel mit ctrlKey; Cmd+Scroll = metaKey → Zoom
+      if (e.ctrlKey || e.metaKey) zoomBy(e.deltaY);
+      else panBy(e.deltaX, e.deltaY);
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gl]);
 
   // View-Request konsumieren → Tween starten
   useEffect(() => {
@@ -218,6 +289,10 @@ export function CameraRig() {
     controls.mouseButtons.RIGHT = shiftDown.current
       ? THREE.MOUSE.PAN
       : THREE.MOUSE.ROTATE;
+    // Option/Alt + Links = Orbit (Trackpad-Nutzer ohne Rechtsklick)
+    controls.mouseButtons.LEFT = altDown.current
+      ? THREE.MOUSE.ROTATE
+      : (undefined as unknown as THREE.MOUSE);
 
     const tween = tweenRef.current;
     if (tween) {
@@ -269,11 +344,12 @@ export function CameraRig() {
         target={cameraState.target}
         enableDamping
         dampingFactor={0.08}
+        enableZoom={false} // Wheel/Zoom eigener Handler (Mac-Trackpad-Pan)
         maxPolarAngle={Math.PI / 2 - 0.02} // nicht unter den Boden schauen
         minDistance={1}
         maxDistance={80}
         mouseButtons={{
-          LEFT: undefined, // Links reserviert für Selektion/Zeichnen
+          LEFT: undefined, // Links reserviert für Selektion/Zeichnen (Alt = Orbit)
           MIDDLE: THREE.MOUSE.PAN,
           RIGHT: THREE.MOUSE.ROTATE,
         }}
